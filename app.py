@@ -2,6 +2,39 @@ import streamlit as st
 from pymongo import MongoClient
 import pandas as pd
 
+# Custom CSS for styling
+st.markdown(
+    """
+    <style>
+        body {
+            background-color: #f4f4f4;
+        }
+        .title {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #4CAF50;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .box {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
+            margin: 10px 0;
+        }
+        .mentor-card {
+            background-color: #fff;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
+            margin-top: 15px;
+        }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 # MongoDB Connection
 MONGO_URI = "mongodb+srv://itz4mealone:SportsMentor@cluster0.gcagz.mongodb.net/test?retryWrites=true&w=majority&appName=Cluster0"
 DB_NAME = "test"
@@ -53,21 +86,30 @@ def find_mentor(athlete_name):
     return mentors if mentors else "❌ No suitable mentor found"
 
 # Streamlit UI
-st.title("🏆 SportsMentor: Find Your Mentor!")
+st.markdown("<div class='title'>🏆 SportsMentor: Find Your Mentor!</div>", unsafe_allow_html=True)
 
-# User input
+st.markdown("<div class='box'>", unsafe_allow_html=True)
 athlete_name = st.text_input("Enter Athlete Name")
+st.markdown("</div>", unsafe_allow_html=True)
 
-if st.button("Find Mentor"):
+if st.button("Find Mentor", help="Click to search for mentors"):
     mentors = find_mentor(athlete_name)
 
-    if isinstance(mentors, list):
-        if mentors:
-            st.success(f"✅ Found {len(mentors)} mentor(s)")
-            st.json(mentors)  # Display JSON output
-            df = pd.DataFrame(mentors)
-            st.dataframe(df)  # Display as table
-        else:
-            st.warning("No mentors found.")
+    if isinstance(mentors, list) and mentors:
+        st.success(f"✅ Found {len(mentors)} mentor(s)")
+
+        # Display mentors in styled cards
+        for mentor in mentors:
+            st.markdown(
+                f"""
+                <div class='mentor-card'>
+                    <h4>👤 {mentor.get('name', 'N/A')}</h4>
+                    <p><b>Sport:</b> {mentor.get('mentorSport', 'N/A')}</p>
+                    <p><b>Region:</b> {mentor.get('mentorRegion', 'N/A')}</p>
+                    <p><b>Expertise:</b> {mentor.get('mentorExpertise', 'N/A')}</p>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
     else:
-        st.error(mentors)  # Display error messages
+        st.warning("No mentors found.")
