@@ -5,8 +5,14 @@ import pandas as pd
 # MongoDB Connection
 MONGO_URI = "mongodb+srv://itz4mealone:SportsMentor@cluster0.gcagz.mongodb.net/test?retryWrites=true&w=majority&appName=Cluster0"
 DB_NAME = "test"
-COLLECTION_NAME = "users"
+USERS_COLLECTION = "users"
 REQUESTS_COLLECTION = "requests"
+
+# Connect to MongoDB
+client = MongoClient(MONGO_URI)
+db = client[DB_NAME]
+users_collection = db[USERS_COLLECTION]
+requests_collection = db[REQUESTS_COLLECTION]
 
 # Synonym Mapping for Expertise Matching
 synonym_mapping = {
@@ -22,12 +28,8 @@ synonym_mapping = {
 
 # Function to Find Mentor
 def find_mentor(athlete_name):
-    client = MongoClient(MONGO_URI)
-    db = client[DB_NAME]
-    users_collection = db[COLLECTION_NAME]
-
-    # Find the athlete
     athlete = users_collection.find_one({"name": athlete_name, "role": "athlete"})
+    
     if not athlete:
         return "❌ Athlete not found"
 
@@ -43,39 +45,79 @@ def find_mentor(athlete_name):
         "mentorRegion": athlete_region,
         "$or": [{"mentorExpertise": {"$regex": f".*{kw}.*", "$options": "i"}} for kw in expertise_keywords]
     }
-    
+
     mentors = list(users_collection.find(mentor_query, {"_id": 0}))
-    client.close()
     return mentors if mentors else "❌ No suitable mentor found"
 
-# Function to Send Mentor Request
+# Function to Send Request
 def send_request(athlete_name, mentor_name):
-    client = MongoClient(MONGO_URI)
-    db = client[DB_NAME]
-    requests_collection = db[REQUESTS_COLLECTION]
-    
-    request_data = {"athlete": athlete_name, "mentor": mentor_name, "status": "pending"}
-    requests_collection.insert_one(request_data)
-    client.close()
-    
-    st.success(f"📩 Request sent to {mentor_name}!")
+    existing_request = requests_collection.find_one({"athlete_name": athlete_name, "mentor_name": mentor_name})
+
+    if existing_request:
+        return "⚠️ Request already sent to this mentor."
+
+    requests_collection.insert_one({
+        "athlete_name": athlete_name,
+        "mentor_name": mentor_name,
+        "status": "pending"
+    })
+    return "✅ Request sent successfully!"
+
+# Streamlit UI Styling
+st.markdown(
+    """
+    <style>
+        .title {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #4CAF50;
+            text-align: center;
+        }
+        .box {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
+            margin: 10px 0;
+        }
+        .mentor-card {
+            background-color: #fff;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
+            margin-top: 15px;
+        }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
 # Streamlit UI
-st.title("🏆 SportsMentor: Find Your Mentor!")
+st.markdown("<div class='title'>🏆 SportsMentor: Find Your Mentor!</div>", unsafe_allow_html=True)
 athlete_name = st.text_input("Enter Athlete Name")
 
 if st.button("Find Mentor"):
     mentors = find_mentor(athlete_name)
+
     if isinstance(mentors, list) and mentors:
         st.success(f"✅ Found {len(mentors)} mentor(s)")
+
         for mentor in mentors:
-            mentor_name = mentor.get("name", "N/A")
-            with st.container():
-                st.write(f"**👤 {mentor_name}**")
-                st.write(f"**Sport:** {mentor.get('mentorSport', 'N/A')}")
-                st.write(f"**Region:** {mentor.get('mentorRegion', 'N/A')}")
-                st.write(f"**Expertise:** {mentor.get('mentorExpertise', 'N/A')}")
-                if st.button(f"Request {mentor_name}", key=mentor_name):
-                    send_request(athlete_name, mentor_name)
+            st.markdown(
+                f"""
+                <div class='mentor-card'>
+                    <h4>👤 {mentor.get('name', 'N/A')}</h4>
+                    <p><b>Sport:</b> {mentor.get('mentorSport', 'N/A')}</p>
+                    <p><b>Region:</b> {mentor.get('mentorRegion', 'N/A')}</p>
+                    <p><b>Expertise:</b> {mentor.get('mentorExpertise', 'N/A')}</p>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+            # Request Button for Each Mentor
+            if st.button(f"Request {mentor.get('name')}", key=mentor.get('name')):
+                result = send_request(athlete_name, mentor.get('name'))
+                st.write(result)
     else:
         st.warning("No mentors found.")
