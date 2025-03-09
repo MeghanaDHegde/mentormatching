@@ -1,6 +1,5 @@
 import streamlit as st
 from pymongo import MongoClient
-import pandas as pd
 
 # MongoDB Connection
 MONGO_URI = "mongodb+srv://itz4mealone:SportsMentor@cluster0.gcagz.mongodb.net/test?retryWrites=true&w=majority&appName=Cluster0"
@@ -19,10 +18,9 @@ synonym_mapping = {
     "batter": ["batting", "batting coach"],
     "bowler": ["bowling", "bowling coach"],
     "all-rounder": ["batting", "bowling", "fielding"],
-    "fast bowler": ["fast bowling", "pace bowling", "fast bowler", "bowling coach"],
-    "pace bowler": ["fast bowling", "pace bowling", "fast bowler", "bowling coach"],
+    "fast bowler": ["fast bowling", "pace bowling", "bowling coach"],
     "spin bowler": ["spin bowling", "leg spin", "off spin", "spin coach"],
-    "wicketkeeper": ["wicketkeeping", "wicketkeeper", "keeper"],
+    "wicketkeeper": ["wicketkeeping", "keeper"],
     "fielder": ["fielding", "fielding coach"],
 }
 
@@ -36,7 +34,7 @@ def find_mentor(athlete_name):
     athlete_sport = athlete.get("athleteSport")
     athlete_region = athlete.get("athleteRegion")
     athlete_position = athlete.get("athleteposition", "").lower()
-    
+
     expertise_keywords = synonym_mapping.get(athlete_position, [athlete_position])
 
     mentor_query = {
@@ -51,10 +49,13 @@ def find_mentor(athlete_name):
 
 # Function to Send Request
 def send_request(athlete_name, mentor_name):
-    existing_request = requests_collection.find_one({"athlete_name": athlete_name, "mentor_name": mentor_name})
+    existing_request = requests_collection.find_one({
+        "athlete_name": athlete_name,
+        "mentor_name": mentor_name
+    })
 
     if existing_request:
-        return "⚠️ Request already sent to this mentor."
+        return "⚠ Request already sent to this mentor."
 
     requests_collection.insert_one({
         "athlete_name": athlete_name,
@@ -63,37 +64,9 @@ def send_request(athlete_name, mentor_name):
     })
     return "✅ Request sent successfully!"
 
-# Streamlit UI Styling
-st.markdown(
-    """
-    <style>
-        .title {
-            font-size: 2.5rem;
-            font-weight: bold;
-            color: #4CAF50;
-            text-align: center;
-        }
-        .box {
-            background-color: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
-            margin: 10px 0;
-        }
-        .mentor-card {
-            background-color: #fff;
-            padding: 15px;
-            border-radius: 10px;
-            box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
-            margin-top: 15px;
-        }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
-
 # Streamlit UI
-st.markdown("<div class='title'>🏆 SportsMentor: Find Your Mentor!</div>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center; color: #4CAF50;'>🏆 SportsMentor: Find Your Mentor!</h1>", unsafe_allow_html=True)
+
 athlete_name = st.text_input("Enter Athlete Name")
 
 if st.button("Find Mentor"):
@@ -105,7 +78,7 @@ if st.button("Find Mentor"):
         for mentor in mentors:
             st.markdown(
                 f"""
-                <div class='mentor-card'>
+                <div style='background-color: #fff; padding: 15px; border-radius: 10px; box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1); margin-top: 15px;'>
                     <h4>👤 {mentor.get('name', 'N/A')}</h4>
                     <p><b>Sport:</b> {mentor.get('mentorSport', 'N/A')}</p>
                     <p><b>Region:</b> {mentor.get('mentorRegion', 'N/A')}</p>
@@ -116,7 +89,7 @@ if st.button("Find Mentor"):
             )
 
             # Request Button for Each Mentor
-            if st.button(f"Request {mentor.get('name')}", key=mentor.get('name')):
+            if st.button(f"Request {mentor.get('name')}", key=f"request_{mentor.get('name')}"):
                 result = send_request(athlete_name, mentor.get('name'))
                 st.write(result)
     else:
